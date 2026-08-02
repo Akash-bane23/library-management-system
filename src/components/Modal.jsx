@@ -32,17 +32,17 @@ const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
 
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className={`relative bg-white rounded-xl shadow-xl w-full ${sizeClasses[size]} transform transition-all ${
+          className={`relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full ${sizeClasses[size]} transform transition-all ${
             isOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"
           }`}
         >
-          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              <HiOutlineX className="h-5 w-5 text-gray-500" />
+              <HiOutlineX className="h-5 w-5 text-gray-500 dark:text-gray-400" />
             </button>
           </div>
 

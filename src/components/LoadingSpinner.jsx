@@ -10,7 +10,7 @@ const LoadingSpinner = ({ size = "md", text = "Loading..." }) => {
       <div
         className={`${sizeClasses[size]} animate-spin rounded-full border-4 border-primary-200 border-t-primary-600`}
       />
-      {text && <p className="mt-3 text-sm text-gray-500">{text}</p>}
+      {text && <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{text}</p>}
     </div>
   );
 };

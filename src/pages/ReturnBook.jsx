@@ -75,20 +75,20 @@ const ReturnBook = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Return Book</h1>
-        <p className="text-gray-500">Process book returns</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-white">Return Book</h1>
+        <p className="text-gray-500 dark:text-gray-400">Process book returns</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         {issuedBooks.length === 0 ? (
           <div className="py-12 text-center">
-            <p className="text-gray-500">No books currently issued</p>
+            <p className="text-gray-500 dark:text-gray-400">No books currently issued</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="sm:overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
+              <thead className="hidden sm:table-header-group">
+                <tr className="text-left text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                   <th className="px-3 sm:px-6 py-3 font-medium">Book</th>
                   <th className="px-3 sm:px-6 py-3 font-medium">Member</th>
                   <th className="px-3 sm:px-6 py-3 font-medium">Issue Date</th>
@@ -97,7 +97,7 @@ const ReturnBook = () => {
                   <th className="px-3 sm:px-6 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="block sm:table-row-group sm:divide-y sm:divide-gray-100 dark:divide-gray-700">
                 {issuedBooks.map((issue) => {
                   const book = books[issue.bookId];
                   const member = members[issue.memberId];
@@ -105,30 +105,45 @@ const ReturnBook = () => {
                   const fine = calculateFine(issue.dueDate);
 
                   return (
-                    <tr key={issue.id} className="hover:bg-gray-50">
-                      <td className="px-3 sm:px-6 py-4">
-                        <p className="text-sm font-medium text-gray-900">
+                    <tr
+                      key={issue.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/40 block sm:table-row border border-gray-200 dark:border-gray-700 rounded-lg mb-3 sm:border-0 sm:rounded-none sm:mb-0"
+                    >
+                      <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">
+                        <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                          Book
+                        </span>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {book?.title || "Unknown Book"}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           {book?.author || ""}
                         </p>
                       </td>
-                      <td className="px-3 sm:px-6 py-4">
-                        <p className="text-sm font-medium text-gray-900">
+                      <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">
+                        <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                          Member
+                        </span>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {member?.name || "Unknown Member"}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           {member?.email || ""}
                         </p>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 text-sm text-gray-600">
+                      <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4 text-sm text-gray-600 dark:text-gray-300">
+                        <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                          Issue Date
+                        </span>
                         {formatDate(issue.issueDate)}
                       </td>
-                      <td className="px-3 sm:px-6 py-4">
+                      <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">
+                        <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                          Due Date
+                        </span>
                         <p
                           className={`text-sm ${
-                            overdue ? "text-red-600 font-medium" : "text-gray-600"
+                            overdue ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-300"
                           }`}
                         >
                           {formatDate(issue.dueDate)}
@@ -137,16 +152,22 @@ const ReturnBook = () => {
                           <p className="text-xs text-red-500">Overdue</p>
                         )}
                       </td>
-                      <td className="px-3 sm:px-6 py-4">
+                      <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">
+                        <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                          Fine
+                        </span>
                         {fine > 0 ? (
-                          <span className="text-sm font-medium text-red-600">
+                          <span className="text-sm font-medium text-red-600 dark:text-red-400">
                             ${fine.toFixed(2)}
                           </span>
                         ) : (
-                          <span className="text-sm text-gray-400">-</span>
+                          <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
                         )}
                       </td>
-                      <td className="px-3 sm:px-6 py-4">
+                      <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">
+                        <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                          Actions
+                        </span>
                         <button
                           onClick={() => handleReturn(issue)}
                           disabled={returning === issue.id}

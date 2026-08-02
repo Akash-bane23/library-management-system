@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -16,36 +17,38 @@ import NotFound from "./pages/NotFound";
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ToastProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Dashboard />} />
-              <Route path="books" element={<Books />} />
-              <Route path="members" element={<Members />} />
-              <Route path="categories" element={<Categories />} />
-              <Route path="authors" element={<Authors />} />
-              <Route path="issue-book" element={<IssueBook />} />
-              <Route path="return-book" element={<ReturnBook />} />
-              <Route path="reports" element={<Reports />} />
-            </Route>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Dashboard />} />
+                <Route path="books" element={<Books />} />
+                <Route path="members" element={<Members />} />
+                <Route path="categories" element={<Categories />} />
+                <Route path="authors" element={<Authors />} />
+                <Route path="issue-book" element={<IssueBook />} />
+                <Route path="return-book" element={<ReturnBook />} />
+                <Route path="reports" element={<Reports />} />
+              </Route>
 
-            <Route path="/404" element={<NotFound />} />
-            <Route path="*" element={<Navigate to="/404" replace />} />
-          </Routes>
-        </ToastProvider>
-      </AuthProvider>
-    </BrowserRouter>
+              <Route path="/404" element={<NotFound />} />
+              <Route path="*" element={<Navigate to="/404" replace />} />
+            </Routes>
+          </ToastProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

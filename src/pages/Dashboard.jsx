@@ -73,8 +73,8 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Welcome back! Here's what's happening.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <p className="text-gray-500 dark:text-gray-400">Welcome back! Here's what's happening.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -116,14 +116,14 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Recently Issued Books</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recently Issued Books</h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="sm:overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
+            <thead className="hidden sm:table-header-group">
+              <tr className="text-left text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                 <th className="px-3 sm:px-6 py-3 font-medium">Book ID</th>
                 <th className="px-3 sm:px-6 py-3 font-medium">Member ID</th>
                 <th className="px-3 sm:px-6 py-3 font-medium">Issue Date</th>
@@ -131,36 +131,54 @@ const Dashboard = () => {
                 <th className="px-3 sm:px-6 py-3 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="block sm:table-row-group sm:divide-y sm:divide-gray-100 dark:divide-gray-700">
               {recentIssues.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-3 sm:px-6 py-8 text-center text-gray-500">
+                <tr className="block sm:table-row">
+                  <td colSpan={5} className="block sm:table-cell px-3 sm:px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     No recent issues found
                   </td>
                 </tr>
               ) : (
                 recentIssues.map((issue) => (
-                  <tr key={issue.id} className="hover:bg-gray-50">
-                    <td className="px-3 sm:px-6 py-4 text-sm font-mono text-gray-900">
-                      {issue.bookId?.substring(0, 8)}...
+                  <tr
+                    key={issue.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/40 block sm:table-row border border-gray-200 dark:border-gray-700 rounded-lg mb-3 sm:border-0 sm:rounded-none sm:mb-0"
+                  >
+                    <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4 text-sm font-mono text-gray-900 dark:text-gray-100">
+                      <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                        Book ID
+                      </span>
+                      <span>{issue.bookId?.substring(0, 8)}...</span>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 text-sm font-mono text-gray-900">
-                      {issue.memberId?.substring(0, 8)}...
+                    <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4 text-sm font-mono text-gray-900 dark:text-gray-100">
+                      <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                        Member ID
+                      </span>
+                      <span>{issue.memberId?.substring(0, 8)}...</span>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-600">
-                      {formatDate(issue.issueDate)}
+                    <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4 text-sm text-gray-600 dark:text-gray-300">
+                      <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                        Issue Date
+                      </span>
+                      <span>{formatDate(issue.issueDate)}</span>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 text-sm text-gray-600">
-                      {formatDate(issue.dueDate)}
+                    <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4 text-sm text-gray-600 dark:text-gray-300">
+                      <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                        Due Date
+                      </span>
+                      <span>{formatDate(issue.dueDate)}</span>
                     </td>
-                    <td className="px-3 sm:px-6 py-4">
+                    <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">
+                      <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
+                        Status
+                      </span>
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           issue.status === "returned"
-                            ? "bg-green-100 text-green-800"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
                             : isOverdue(issue.dueDate)
-                            ? "bg-red-100 text-red-800"
-                            : "bg-blue-100 text-blue-800"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                            : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
                         }`}
                       >
                         {issue.status === "returned"
