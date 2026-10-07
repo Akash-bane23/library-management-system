@@ -20,7 +20,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   const menuItems = [
     { path: "/", label: "Dashboard", icon: HiOutlineHome },
     { path: "/books", label: "Books", icon: HiOutlineBookOpen },
-    { path: "/members", label: "Members", icon: HiOutlineUsers },
+    { path: "/members", label: "Add Students", icon: HiOutlineUsers },
     { path: "/students", label: "Students", icon: HiOutlineAcademicCap },
     { path: "/categories", label: "Categories", icon: HiOutlineCollection },
     { path: "/authors", label: "Authors", icon: HiOutlineUserGroup },

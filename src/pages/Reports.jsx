@@ -122,7 +122,7 @@ const Reports = () => {
               <thead className="hidden sm:table-header-group">
                 <tr className="text-left text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                   <th className="px-3 sm:px-6 py-3 font-medium">Book</th>
-                  <th className="px-3 sm:px-6 py-3 font-medium">Member</th>
+                  <th className="px-3 sm:px-6 py-3 font-medium">Student</th>
                   <th className="px-3 sm:px-6 py-3 font-medium">Issue Date</th>
                   <th className="px-3 sm:px-6 py-3 font-medium">Due Date</th>
                   <th className="px-3 sm:px-6 py-3 font-medium">Return Date</th>
@@ -155,10 +155,10 @@ const Reports = () => {
                       </td>
                       <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">
                         <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
-                          Member
+                          Student
                         </span>
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {member?.name || "Unknown Member"}
+                          {member?.name || "Unknown Student"}
                         </p>
                       </td>
                       <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4 text-sm text-gray-600 dark:text-gray-300">

@@ -257,7 +257,7 @@ const Dashboard = () => {
                             Student
                           </span>
                           <p className="text-sm text-gray-600 dark:text-gray-300">
-                            {member?.name || "Unknown Member"}
+                            {member?.name || "Unknown Student"}
                           </p>
                         </td>
                         <td className="block sm:table-cell px-3 sm:px-6 py-2 sm:py-4 text-sm text-gray-600 dark:text-gray-300">
@@ -319,7 +319,7 @@ const Dashboard = () => {
                           {book?.title || "Unknown Book"}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {member?.name || "Unknown Member"}
+                          {member?.name || "Unknown Student"}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">

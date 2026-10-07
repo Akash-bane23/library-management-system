@@ -129,7 +129,7 @@ const Students = () => {
           Students
         </h1>
         <p className="text-gray-500 dark:text-gray-400">
-          Library members, borrowing activity and dues
+          Library students, borrowing activity and dues
         </p>
       </div>
 
@@ -185,7 +185,7 @@ const Students = () => {
             <EmptyState
               icon={HiOutlineUsers}
               title="No students found"
-              message="Add members from the Members page to see them here."
+              message="Add students from the Add Students page to see them here."
             />
           ) : (
             <>

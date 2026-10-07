@@ -41,7 +41,7 @@ const IssueBook = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.bookId || !formData.memberId) {
-      showToast("Please select both a book and a member", "error");
+      showToast("Please select both a book and a student", "error");
       return;
     }
     if (!formData.issueDate || !formData.dueDate) {
@@ -76,14 +76,14 @@ const IssueBook = () => {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Issue Book</h1>
-        <p className="text-gray-500 dark:text-gray-400">Issue a book to a member</p>
+        <p className="text-gray-500 dark:text-gray-400">Issue a book to a student</p>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Select Member *
+              Select Student *
             </label>
             <select
               name="memberId"
@@ -91,7 +91,7 @@ const IssueBook = () => {
               onChange={handleInputChange}
               className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
-              <option value="">Choose a member</option>
+              <option value="">Choose a student</option>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name} ({member.email})
