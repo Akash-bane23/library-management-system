@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { HiOutlineDocumentText, HiOutlineCheckCircle, HiOutlineExclamationCircle } from "react-icons/hi";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { booksService, membersService, issuedBooksService } from "../services/firestore";
-import { formatDate, isOverdue, calculateFine } from "../utils/helpers";
+import { formatDate, isOverdue, calculateFine, formatCurrency } from "../utils/helpers";
 
 const Reports = () => {
   const [activeTab, setActiveTab] = useState("issued");
@@ -184,7 +184,7 @@ const Reports = () => {
                           <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 sm:hidden">
                             Fine
                           </span>
-                          ${calculateFine(issue.dueDate).toFixed(2)}
+                          {formatCurrency(calculateFine(issue.dueDate))}
                         </td>
                       )}
                       <td className="block sm:table-cell px-3 sm:px-6 py-1.5 sm:py-4">

@@ -20,13 +20,22 @@ export const formatDateTime = (timestamp) => {
   });
 };
 
+export const FINE_PER_DAY = 10;
+
+export const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
+
 export const calculateFine = (dueDate, returnDate = null) => {
   const due = new Date(dueDate);
   const returned = returnDate ? new Date(returnDate) : new Date();
   const diffTime = returned - due;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   if (diffDays <= 0) return 0;
-  return diffDays * 1;
+  return diffDays * FINE_PER_DAY;
 };
 
 export const isOverdue = (dueDate) => {
@@ -36,6 +45,15 @@ export const isOverdue = (dueDate) => {
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
   return due < today;
+};
+
+export const getDaysOverdue = (dueDate) => {
+  if (!isOverdue(dueDate)) return 0;
+  const due = new Date(dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return Math.ceil((today - due) / (1000 * 60 * 60 * 24));
 };
 
 export const getTodayISO = () => {

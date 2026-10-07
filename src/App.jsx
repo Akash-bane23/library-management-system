@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Books from "./pages/Books";
 import Members from "./pages/Members";
+import Students from "./pages/Students";
 import Categories from "./pages/Categories";
 import Authors from "./pages/Authors";
 import IssueBook from "./pages/IssueBook";
@@ -35,6 +36,7 @@ function App() {
                 <Route index element={<Dashboard />} />
                 <Route path="books" element={<Books />} />
                 <Route path="members" element={<Members />} />
+                <Route path="students" element={<Students />} />
                 <Route path="categories" element={<Categories />} />
                 <Route path="authors" element={<Authors />} />
                 <Route path="issue-book" element={<IssueBook />} />

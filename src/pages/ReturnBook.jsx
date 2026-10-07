@@ -4,7 +4,7 @@ import { HiOutlineArrowLeft } from "react-icons/hi";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { booksService, membersService, issuedBooksService } from "../services/firestore";
 import { useToast } from "../context/ToastContext";
-import { formatDate, calculateFine, isOverdue, getTodayISO } from "../utils/helpers";
+import { formatDate, calculateFine, isOverdue, getTodayISO, formatCurrency } from "../utils/helpers";
 
 const ReturnBook = () => {
   const [issuedBooks, setIssuedBooks] = useState([]);
@@ -58,7 +58,7 @@ const ReturnBook = () => {
       const fine = calculateFine(issue.dueDate);
       await issuedBooksService.returnBook(issue.id, fine);
       if (fine > 0) {
-        showToast(`Book returned with fine of $${fine.toFixed(2)}`, "error");
+        showToast(`Book returned with fine of ${formatCurrency(fine)}`, "error");
       } else {
         showToast("Book returned successfully!");
       }
@@ -158,7 +158,7 @@ const ReturnBook = () => {
                         </span>
                         {fine > 0 ? (
                           <span className="text-sm font-medium text-red-600 dark:text-red-400">
-                            ${fine.toFixed(2)}
+                            {formatCurrency(fine)}
                           </span>
                         ) : (
                           <span className="text-sm text-gray-400 dark:text-gray-500">-</span>

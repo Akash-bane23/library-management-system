@@ -11,6 +11,7 @@ import {
   HiOutlineArrowLeft,
   HiOutlineChartBar,
   HiOutlineCog,
+  HiOutlineAcademicCap,
 } from "react-icons/hi";
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -20,6 +21,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: "/", label: "Dashboard", icon: HiOutlineHome },
     { path: "/books", label: "Books", icon: HiOutlineBookOpen },
     { path: "/members", label: "Members", icon: HiOutlineUsers },
+    { path: "/students", label: "Students", icon: HiOutlineAcademicCap },
     { path: "/categories", label: "Categories", icon: HiOutlineCollection },
     { path: "/authors", label: "Authors", icon: HiOutlineUserGroup },
     { path: "/issue-book", label: "Issue Book", icon: HiOutlineClipboardList },
