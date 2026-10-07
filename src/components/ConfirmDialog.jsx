@@ -1,7 +1,20 @@
 import { HiOutlineExclamation } from "react-icons/hi";
 
-const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
+const ConfirmDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = "Delete",
+  confirmVariant = "danger",
+}) => {
   if (!isOpen) return null;
+
+  const confirmClasses =
+    confirmVariant === "primary"
+      ? "bg-primary-600 hover:bg-primary-700"
+      : "bg-red-600 hover:bg-red-700";
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -10,8 +23,20 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6">
           <div className="flex items-center gap-4">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
-              <HiOutlineExclamation className="h-6 w-6 text-red-600 dark:text-red-400" />
+            <div
+              className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
+                confirmVariant === "primary"
+                  ? "bg-primary-100 dark:bg-primary-900/40"
+                  : "bg-red-100 dark:bg-red-900/40"
+              }`}
+            >
+              <HiOutlineExclamation
+                className={`h-6 w-6 ${
+                  confirmVariant === "primary"
+                    ? "text-primary-600 dark:text-primary-300"
+                    : "text-red-600 dark:text-red-400"
+                }`}
+              />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
@@ -31,9 +56,9 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
                 onConfirm();
                 onClose();
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${confirmClasses}`}
             >
-              Delete
+              {confirmText}
             </button>
           </div>
         </div>

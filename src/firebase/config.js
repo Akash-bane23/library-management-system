@@ -47,4 +47,10 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+// Secondary app used only to create staff accounts from the admin UI.
+// It keeps the signed-in admin's session untouched (createUserWithEmailAndPassword
+// on the primary app would switch the session to the new user).
+const secondaryApp = initializeApp(firebaseConfig, "secondary");
+export const secondaryAuth = getAuth(secondaryApp);
+
 export default app;

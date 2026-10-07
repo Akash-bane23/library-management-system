@@ -14,7 +14,9 @@ import Authors from "./pages/Authors";
 import IssueBook from "./pages/IssueBook";
 import ReturnBook from "./pages/ReturnBook";
 import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import AdminRoute from "./routes/AdminRoute";
 
 function App() {
   return (
@@ -42,6 +44,14 @@ function App() {
                 <Route path="issue-book" element={<IssueBook />} />
                 <Route path="return-book" element={<ReturnBook />} />
                 <Route path="reports" element={<Reports />} />
+                <Route
+                  path="settings"
+                  element={
+                    <AdminRoute>
+                      <Settings />
+                    </AdminRoute>
+                  }
+                />
               </Route>
 
               <Route path="/404" element={<NotFound />} />

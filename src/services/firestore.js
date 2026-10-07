@@ -12,8 +12,15 @@ import {
   limit,
   serverTimestamp,
   startAfter,
+  setDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
+import {
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  deleteUser,
+  signOut,
+} from "firebase/auth";
+import { auth, db, secondaryAuth } from "../firebase/config";
 
 const COLLECTIONS = {
   USERS: "users",
@@ -177,6 +184,54 @@ const issuedBooksService = {
   },
 };
 
+// Staff / user account operations
+const usersService = {
+  getAll: (conditions, orderByField, limitCount, lastDoc) =>
+    getDocuments(COLLECTIONS.USERS, conditions, orderByField, limitCount, lastDoc),
+  getById: (id) => getDocument(COLLECTIONS.USERS, id),
+  createStaff: async ({ name, email, password, role }) => {
+    let credential = null;
+    try {
+      credential = await createUserWithEmailAndPassword(
+        secondaryAuth,
+        email,
+        password
+      );
+      await setDoc(doc(db, "users", credential.user.uid), {
+        uid: credential.user.uid,
+        name,
+        email,
+        role,
+        status: "active",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return credential.user.uid;
+    } catch (error) {
+      // Roll back the auth account if the Firestore profile write failed,
+      // so the email can be retried.
+      if (credential) {
+        try {
+          await deleteUser(credential.user);
+        } catch (cleanupError) {
+          console.error("Cleanup of orphan auth user failed:", cleanupError);
+        }
+      }
+      throw error;
+    } finally {
+      try {
+        await signOut(secondaryAuth);
+      } catch (signOutError) {
+        console.error("Secondary sign-out failed:", signOutError);
+      }
+    }
+  },
+  updateProfile: (id, data) => updateDocument(COLLECTIONS.USERS, id, data),
+  setStatus: (id, status) => updateDocument(COLLECTIONS.USERS, id, { status }),
+  deleteProfile: (id) => deleteDocument(COLLECTIONS.USERS, id),
+  sendPasswordReset: (email) => sendPasswordResetEmail(auth, email),
+};
+
 export {
   COLLECTIONS,
   createDocument,
@@ -189,4 +244,5 @@ export {
   categoriesService,
   authorsService,
   issuedBooksService,
+  usersService,
 };
