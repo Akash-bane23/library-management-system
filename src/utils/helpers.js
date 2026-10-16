@@ -70,6 +70,20 @@ export const validateEmail = (email) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
+// Strip everything except digits so "‎+91 98765 43210" -> "919876543210".
+export const normalizeMobile = (value) =>
+  String(value || "").replace(/\D/g, "");
+
+// A mobile number must contain 10–13 digits (10-digit local or with country code).
+export const validateMobile = (value) => {
+  const digits = normalizeMobile(value);
+  return digits.length >= 10 && digits.length <= 13;
+};
+
+// STU0001, STU0002, ... (padded numeric sequence)
+export const formatStudentId = (sequence) =>
+  `STU${String(sequence).padStart(4, "0")}`;
+
 export const validateISBN = (isbn) => {
   return /^\d{10}(\d{3})?$/.test(isbn.replace(/[-\s]/g, ""));
 };

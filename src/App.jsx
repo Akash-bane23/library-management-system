@@ -3,12 +3,20 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import DashboardLayout from "./layouts/DashboardLayout";
+import StudentLayout from "./layouts/StudentLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import AdminRoute from "./routes/AdminRoute";
+import LibrarianRoute from "./routes/LibrarianRoute";
+import StudentRoute from "./routes/StudentRoute";
 import Login from "./pages/Login";
+import LibrarianLogin from "./pages/LibrarianLogin";
+import StudentLogin from "./pages/StudentLogin";
+import AccessDenied from "./pages/AccessDenied";
 import Dashboard from "./pages/Dashboard";
 import Books from "./pages/Books";
 import Members from "./pages/Members";
 import Students from "./pages/Students";
+import StudentDashboard from "./pages/StudentDashboard";
 import Categories from "./pages/Categories";
 import Authors from "./pages/Authors";
 import IssueBook from "./pages/IssueBook";
@@ -16,7 +24,6 @@ import ReturnBook from "./pages/ReturnBook";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import AdminRoute from "./routes/AdminRoute";
 
 function App() {
   return (
@@ -26,6 +33,9 @@ function App() {
           <ToastProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/librarian/login" element={<LibrarianLogin />} />
+              <Route path="/student/login" element={<StudentLogin />} />
+              <Route path="/access-denied" element={<AccessDenied />} />
 
               <Route
                 path="/"
@@ -52,6 +62,36 @@ function App() {
                     </AdminRoute>
                   }
                 />
+              </Route>
+
+              <Route
+                path="/librarian"
+                element={
+                  <LibrarianRoute>
+                    <DashboardLayout />
+                  </LibrarianRoute>
+                }
+              >
+                <Route
+                  index
+                  element={<Navigate to="/librarian/dashboard" replace />}
+                />
+                <Route path="dashboard" element={<Dashboard />} />
+              </Route>
+
+              <Route
+                path="/student"
+                element={
+                  <StudentRoute>
+                    <StudentLayout />
+                  </StudentRoute>
+                }
+              >
+                <Route
+                  index
+                  element={<Navigate to="/student/dashboard" replace />}
+                />
+                <Route path="dashboard" element={<StudentDashboard />} />
               </Route>
 
               <Route path="/404" element={<NotFound />} />

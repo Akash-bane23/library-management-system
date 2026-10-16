@@ -17,8 +17,11 @@ import {
 const Sidebar = ({ isOpen, onClose }) => {
   const { userProfile } = useAuth();
 
+  const dashboardPath =
+    userProfile?.role === "librarian" ? "/librarian/dashboard" : "/";
+
   const menuItems = [
-    { path: "/", label: "Dashboard", icon: HiOutlineHome },
+    { path: dashboardPath, label: "Dashboard", icon: HiOutlineHome },
     { path: "/books", label: "Books", icon: HiOutlineBookOpen },
     { path: "/members", label: "Add Students", icon: HiOutlineUsers },
     { path: "/students", label: "Students", icon: HiOutlineAcademicCap },

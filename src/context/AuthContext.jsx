@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   signOut,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
@@ -95,6 +96,46 @@ export const AuthProvider = ({ children }) => {
     setUserProfile(null);
   };
 
+  // Student login uses the Student ID (not an email). A trusted serverless
+  // endpoint resolves the ID, verifies the password and returns a custom token,
+  // which we exchange for a normal Firebase session.
+  const loginWithStudentId = async (studentId, password) => {
+    let response;
+    try {
+      response = await fetch("/api/student-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, password }),
+      });
+    } catch {
+      const error = new Error(
+        "Could not reach the login service. Check your connection and try again."
+      );
+      error.code = "student/network-error";
+      throw error;
+    }
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    if (!response.ok || !payload?.customToken) {
+      const error = new Error(
+        payload?.error ||
+          (response.status === 404
+            ? "The login service was not found. If you are running locally, start the app with `vercel dev`."
+            : "Login failed. Please try again.")
+      );
+      error.code = payload?.code || "student/login-failed";
+      throw error;
+    }
+
+    return signInWithCustomToken(auth, payload.customToken);
+  };
+
   const register = async (email, password, name, role = "librarian") => {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     await setDoc(doc(db, "users", result.user.uid), {
@@ -172,6 +213,7 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     userProfile,
     login,
+    loginWithStudentId,
     logout,
     register,
     isAdmin,
