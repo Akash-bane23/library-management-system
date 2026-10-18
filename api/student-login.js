@@ -16,20 +16,10 @@
 // The Student ID supplied by the browser is NEVER trusted as proof of
 // ownership — the password is always verified server-side.
 //
-// Required environment variables:
-//   FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
-//   FIREBASE_API_KEY  (the Firebase Web API key — safe to use server-side)
+// Required configuration: see server/firebase-admin.js. The Firebase Web API key
+// is reused from VITE_FIREBASE_API_KEY when FIREBASE_API_KEY is not set.
 
-import { getApps, initializeApp, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-
-const REQUIRED_ENV = [
-  "FIREBASE_PROJECT_ID",
-  "FIREBASE_CLIENT_EMAIL",
-  "FIREBASE_PRIVATE_KEY",
-  "FIREBASE_API_KEY",
-];
+import { getAdminServices, resolveWebApiKey } from "../server/firebase-admin.js";
 
 // Best-effort in-memory rate limiting. Serverless instances are ephemeral, so
 // this complements (but does not replace) Firebase Auth's built-in abuse
@@ -49,43 +39,29 @@ function isRateLimited(key) {
   return entry.count > MAX_ATTEMPTS;
 }
 
-function getAdminApp() {
-  const existing = getApps();
-  if (existing.length > 0) return existing[0];
-
-  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    const error = new Error(
-      `Server is not configured. Missing environment variables: ${missing.join(", ")}.`
-    );
-    error.code = "server/misconfigured";
-    throw error;
-  }
-
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n");
-
-  return initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey,
-    }),
-  });
-}
-
 const INVALID = {
   error: "Invalid Student ID or password. Please try again.",
   code: "invalid-credentials",
 };
 
 export default async function handler(req, res) {
+  const id = Math.random().toString(36).slice(2, 10);
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  const body = req.body || {};
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = {};
+    }
+  }
+  if (!body || typeof body !== "object") body = {};
   const studentId = String(body.studentId || "").trim().toUpperCase();
+  // The password is never logged or stored anywhere.
   const password = String(body.password || "");
 
   if (!studentId || !password) {
@@ -103,19 +79,30 @@ export default async function handler(req, res) {
     });
   }
 
-  let app;
+  let auth;
+  let db;
   try {
-    app = getAdminApp();
+    ({ auth, db } = getAdminServices());
   } catch (error) {
+    console.error(`[student-login ${id}] init:`, {
+      code: error?.code || "unknown",
+      message: error?.message,
+    });
     return res.status(500).json({
       error:
-        "The login service is not configured on the server. Add the Firebase " +
-        "admin and API-key environment variables.",
+        error?.code === "server/misconfigured" || error?.code === "server/invalid-key"
+          ? `${error.message} Add them to .env locally and to Vercel (Project Settings -> Environment Variables).`
+          : "The login service is not configured on the server. Add FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY and FIREBASE_API_KEY (see .env.example).",
     });
   }
 
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  const apiKey = resolveWebApiKey();
+  if (!apiKey) {
+    return res.status(500).json({
+      error:
+        "FIREBASE_API_KEY (or VITE_FIREBASE_API_KEY) is missing on the server. Add it to .env locally and to Vercel.",
+    });
+  }
 
   try {
     // --- 1. Resolve Student ID -> Firebase account (server-side) ---------
@@ -139,7 +126,7 @@ export default async function handler(req, res) {
     let restResponse;
     try {
       restResponse = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_API_KEY}`,
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -193,7 +180,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ customToken });
   } catch (error) {
-    console.error("student-login failed:", error.code || error.message);
+    console.error(`[student-login ${id}] failed:`, {
+      code: error?.code || "unknown",
+      message: error?.message || String(error),
+    });
     return res
       .status(500)
       .json({ error: "Something went wrong while signing in. Please try again." });

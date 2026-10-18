@@ -3,13 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev.mjs",
     "dev:vercel": "npx vercel dev",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "setup-admin": "node scripts/setup-admin.js",
+    "check:firebase": "node scripts/check-firebase-env.mjs",
     "seed-data": "node scripts/seed-data.js"
   },
   "dependencies": {

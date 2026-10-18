@@ -22,88 +22,50 @@
 //   3. Only an active admin or librarian may provision a student.
 //   4. Role is always forced to "student"; the client cannot choose it.
 //
-// Required environment variables:
-//   FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
+// Required configuration: see server/firebase-admin.js. The project id is
+// reused from the frontend config (VITE_FIREBASE_PROJECT_ID) when the
+// server-side FIREBASE_PROJECT_ID is not set.
 
-import { getApps, initializeApp, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
-
-const REQUIRED_ENV = [
-  "FIREBASE_PROJECT_ID",
-  "FIREBASE_CLIENT_EMAIL",
-  "FIREBASE_PRIVATE_KEY",
-];
+import { FieldValue } from "firebase-admin/firestore";
+import { getAdminServices } from "../server/firebase-admin.js";
 
 const STAFF_ROLES = ["admin", "librarian"];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COUNTER_DOC = "counters/studentId";
 
-function getAdminApp() {
-  const existing = getApps();
-  if (existing.length > 0) return existing[0];
-
-  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    const error = new Error(
-      `Server is not configured. Missing environment variables: ${missing.join(", ")}.`
-    );
-    error.code = "server/misconfigured";
-    throw error;
-  }
-
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n");
-
-  return initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey,
-    }),
-  });
-}
-
 const asString = (value) => (typeof value === "string" ? value.trim() : "");
 const normalizeMobile = (value) => String(value || "").replace(/\D/g, "");
 const formatStudentId = (n) => `STU${String(n).padStart(4, "0")}`;
 
-// Ensure the counter exists, seeding it from any pre-existing STU#### ids so we
-// never hand out a duplicate when the app is first used.
-async function ensureCounter(db) {
-  const counterRef = db.doc(COUNTER_DOC);
-  const snap = await counterRef.get();
-  if (snap.exists) return;
-
-  const members = await db.collection("members").get();
-  let max = 0;
-  members.forEach((docSnap) => {
-    const sid = docSnap.get("studentId") || "";
-    const match = /^STU(\d+)$/.exec(sid);
-    if (match) max = Math.max(max, parseInt(match[1], 10));
+// Server-side diagnostics. Never logs request bodies (they contain the
+// initial password) — only error codes, messages and generated ids.
+const requestId = () => Math.random().toString(36).slice(2, 10);
+const logError = (id, stage, error) =>
+  console.error(`[create-student ${id}] ${stage}:`, {
+    code: error?.code || "unknown",
+    message: error?.message || String(error),
   });
 
-  await counterRef.set({ value: max }, { merge: true });
-}
-
 export default async function handler(req, res) {
+  const id = requestId();
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  let app;
+  let auth;
+  let db;
   try {
-    app = getAdminApp();
+    ({ auth, db } = getAdminServices());
   } catch (error) {
+    logError(id, "init", error);
     return res.status(500).json({
       error:
-        "The student-creation service is not configured on the server. " +
-        "Add FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY.",
+        error?.code === "server/misconfigured" || error?.code === "server/invalid-key"
+          ? `${error.message} Add them to .env locally and to Vercel (Project Settings -> Environment Variables). Run \`npm run check:firebase\` for details.`
+          : "The student-creation service is not configured on the server. Add FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY (see .env.example).",
     });
   }
-
-  const auth = getAuth(app);
-  const db = getFirestore(app);
 
   try {
     // --- 1. Authenticate the caller -------------------------------------
@@ -140,7 +102,15 @@ export default async function handler(req, res) {
     }
 
     // --- 3. Validate input ----------------------------------------------
-    const body = req.body || {};
+    let body = req.body;
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        body = {};
+      }
+    }
+    if (!body || typeof body !== "object") body = {};
     const name = asString(body.name);
     const email = asString(body.email).toLowerCase();
     const mobile = normalizeMobile(body.phone);
@@ -231,16 +201,41 @@ export default async function handler(req, res) {
     const counterRef = db.doc(COUNTER_DOC);
 
     let studentId = "";
+    const now = FieldValue.serverTimestamp();
     try {
-      await ensureCounter(db);
-
-      const now = FieldValue.serverTimestamp();
-
       await db.runTransaction(async (transaction) => {
+        // Firestore requires every read to happen before every write.
         const counterSnap = await transaction.get(counterRef);
-        const next = (counterSnap.exists ? counterSnap.data().value || 0 : 0) + 1;
-        studentId = formatStudentId(next);
+        let next;
+        if (counterSnap.exists) {
+          next = (counterSnap.data().value || 0) + 1;
+        } else {
+          // First ever creation: seed from existing STU#### ids inside this
+          // same transaction. Seeding in a separate write could race with a
+          // concurrent add and hand out a duplicate id.
+          let max = 0;
+          const allMembers = await transaction.get(db.collection("members"));
+          allMembers.forEach((docSnap) => {
+            const match = /^STU(\d+)$/.exec(docSnap.get("studentId") || "");
+            if (match) max = Math.max(max, parseInt(match[1], 10));
+          });
+          next = max + 1;
+        }
 
+        // Defensive duplicate guard: never reuse an id another record holds.
+        const idQuery = () =>
+          db.collection("members").where("studentId", "==", formatStudentId(next)).limit(1);
+        let clash = await transaction.get(idQuery());
+        while (
+          !clash.empty &&
+          clash.docs.some((docSnap) => docSnap.id !== memberRef.id) &&
+          next < 999999
+        ) {
+          next += 1;
+          clash = await transaction.get(idQuery());
+        }
+
+        studentId = formatStudentId(next);
         transaction.set(counterRef, { value: next }, { merge: true });
 
         if (existingMemberDoc) {
@@ -282,16 +277,29 @@ export default async function handler(req, res) {
         });
       });
     } catch (error) {
+      logError(id, "record write failed; rolling back auth user", error);
       try {
         await auth.deleteUser(userRecord.uid);
+        console.log(
+          `[create-student ${id}] rollback ok (uid=${userRecord.uid}, studentId=${studentId || "none"})`
+        );
       } catch (cleanupError) {
-        console.error("Rollback of orphaned auth user failed:", cleanupError.code);
+        // The auth account still exists but has no profile: report the uid so
+        // it can be removed from the Firebase console (no secrets involved).
+        console.error(`[create-student ${id}] ROLLBACK FAILED - manual cleanup required:`, {
+          uid: userRecord.uid,
+          code: cleanupError?.code,
+          message: cleanupError?.message,
+        });
       }
       return res.status(500).json({
         error: "The account could not be saved and was rolled back. Please try again.",
       });
     }
 
+    console.log(
+      `[create-student ${id}] ok (studentId=${studentId}, memberId=${memberRef.id})`
+    );
     return res.status(201).json({
       uid: userRecord.uid,
       memberId: memberRef.id,
@@ -300,7 +308,7 @@ export default async function handler(req, res) {
       email,
     });
   } catch (error) {
-    console.error("create-student failed:", error.code || error.message);
+    logError(id, "unhandled failure", error);
     return res
       .status(500)
       .json({ error: "Something went wrong while creating the student account." });

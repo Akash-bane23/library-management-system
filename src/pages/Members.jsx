@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   HiOutlinePlus,
   HiOutlinePencil,
   HiOutlineTrash,
   HiOutlineSearch,
+  HiOutlineEye,
   HiOutlineCheckCircle,
   HiOutlineClipboardCopy,
   HiOutlinePrinter,
@@ -15,12 +16,20 @@ import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Pagination from "../components/Pagination";
 import EmptyState from "../components/EmptyState";
-import { membersService } from "../services/firestore";
+import {
+  membersService,
+  issuedBooksService,
+  booksService,
+} from "../services/firestore";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { usePagination, useSearch } from "../hooks/useFirestore";
 import {
   formatDate,
+  formatDateTime,
+  formatCurrency,
+  calculateFine,
+  isOverdue,
   validateEmail,
   validateMobile,
   normalizeMobile,
@@ -35,6 +44,23 @@ const initialStudentState = {
   address: "",
 };
 
+const getIssueStats = (issues) => {
+  const stats = { total: issues.length, active: 0, overdue: 0, returned: 0, fine: 0 };
+  issues.forEach((issue) => {
+    if (issue.status === "returned") {
+      stats.returned += 1;
+      stats.fine += Number(issue.fine) || 0;
+    } else {
+      stats.active += 1;
+      if (isOverdue(issue.dueDate)) {
+        stats.overdue += 1;
+        stats.fine += calculateFine(issue.dueDate);
+      }
+    }
+  });
+  return stats;
+};
+
 const Members = () => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +71,9 @@ const Members = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [loginInfo, setLoginInfo] = useState(null);
+  const [viewStudent, setViewStudent] = useState(null);
+  const [viewDetails, setViewDetails] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
   const { currentUser, userProfile } = useAuth();
   const { showToast } = useToast();
 
@@ -66,7 +95,18 @@ const Members = () => {
     setLoading(true);
     try {
       const result = await membersService.getAll();
-      setMembers(result.docs);
+      const toMillis = (value) => {
+        if (!value) return 0;
+        if (typeof value.toMillis === "function") return value.toMillis();
+        if (typeof value.seconds === "number") return value.seconds * 1000;
+        const parsed = new Date(value).getTime();
+        return Number.isNaN(parsed) ? 0 : parsed;
+      };
+      // Newest first so a just-created student is immediately visible.
+      const sorted = result.docs
+        .slice()
+        .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+      setMembers(sorted);
     } catch (error) {
       showToast("Error fetching students: " + error.message, "error");
     } finally {
@@ -124,26 +164,51 @@ const Members = () => {
           address: formData.address.trim(),
         }),
       });
-    } catch {
+    } catch (networkError) {
+      console.error("[create-student] network failure:", networkError);
       throw new Error(
-        "Could not reach the account service. Check your connection, or run the app with `vercel dev` locally."
+        "Could not reach the account service. Check your connection, or run the app with `npm run dev` (or `npx vercel dev`) locally."
       );
     }
 
+    // Read the body once as text: the endpoint answers JSON, but a gateway or
+    // crashed function can answer HTML/plain text — handle both safely.
+    let rawBody = "";
     let payload = null;
     try {
-      payload = await response.json();
+      rawBody = await response.text();
+      payload = rawBody ? JSON.parse(rawBody) : null;
     } catch {
       payload = null;
     }
 
     if (!response.ok) {
+      // Technical detail stays in the console; the toast gets a safe message.
+      console.error("[create-student] API error:", {
+        status: response.status,
+        body: rawBody.slice(0, 500),
+      });
       if (payload?.fieldErrors) setFieldErrors(payload.fieldErrors);
-      const message =
-        payload?.error ||
-        (response.status === 404
-          ? "The account service was not found. If you are running locally, start the app with `vercel dev`."
-          : "Could not create the student account. Please try again.");
+
+      let message;
+      if (typeof payload?.error === "string" && payload.error) {
+        message = payload.error;
+      } else if (response.status === 404) {
+        message =
+          "The account service was not found. Run the app with `npm run dev` (or `npx vercel dev`) locally, or redeploy on Vercel.";
+      } else if (response.status === 401) {
+        message = "Your session has expired. Please sign in again.";
+      } else if (response.status === 403) {
+        message = "You do not have permission to create student accounts.";
+      } else if (response.status === 429) {
+        message = "Too many attempts. Please wait a moment and try again.";
+      } else if (response.status >= 500) {
+        message =
+          `The server hit an error while creating the student (HTTP ${response.status}). ` +
+          "Details are in the browser console and the Vercel function logs.";
+      } else {
+        message = `The request failed (HTTP ${response.status}). Please try again.`;
+      }
       throw new Error(message);
     }
 
@@ -184,7 +249,7 @@ const Members = () => {
       setSelectedMember(null);
       setFormData(initialStudentState);
       setFieldErrors({});
-      fetchMembers();
+      await fetchMembers();
     } catch (error) {
       showToast(
         "Error: " + (error.message || "Something went wrong."),
@@ -218,6 +283,46 @@ const Members = () => {
     } catch (error) {
       showToast("Error deleting student: " + error.message, "error");
     }
+  };
+
+  // Loads the selected student's fresh record + real borrowing history.
+  const handleView = (member) => {
+    setViewStudent(member);
+    setViewDetails(null);
+    setViewLoading(true);
+
+    const load = async () => {
+      const fresh = (await membersService.getById(member.id)) || member;
+      const issuesResult = await issuedBooksService.getAll([
+        { field: "memberId", operator: "==", value: member.id },
+      ]);
+      const issues = issuesResult.docs
+        .slice()
+        .sort((a, b) => String(b.issueDate || "").localeCompare(String(a.issueDate || "")));
+      const bookIds = [...new Set(issues.map((issue) => issue.bookId).filter(Boolean))];
+      const books = await Promise.all(
+        bookIds.map((bookId) => booksService.getById(bookId).catch(() => null))
+      );
+      const bookMap = {};
+      books.forEach((book) => {
+        if (book) bookMap[book.id] = book;
+      });
+      return { member: fresh, issues, bookMap };
+    };
+
+    load()
+      .then((details) => setViewDetails(details))
+      .catch((error) => {
+        console.error("Error loading student details:", error);
+        setViewDetails({ member, issues: [], bookMap: {}, loadError: true });
+      })
+      .finally(() => setViewLoading(false));
+  };
+
+  const closeView = () => {
+    setViewStudent(null);
+    setViewDetails(null);
+    setViewLoading(false);
   };
 
   const openAddModal = () => {
@@ -291,6 +396,23 @@ const Members = () => {
   };
 
   if (loading) return <LoadingSpinner text="Loading students..." />;
+
+  // Values for the Student Details modal (never includes auth credentials).
+  const detailMember = viewDetails?.member || viewStudent;
+  const detailIssues = viewDetails?.issues || [];
+  const detailBookMap = viewDetails?.bookMap || {};
+  const detailStats = getIssueStats(detailIssues);
+  const detailFields = [
+    { label: "Full Name", value: detailMember?.name },
+    { label: "Student ID", value: detailMember?.studentId },
+    { label: "Email", value: detailMember?.email },
+    { label: "Mobile Number", value: detailMember?.phone || detailMember?.mobile },
+    { label: "Class / Department", value: detailMember?.className },
+    {
+      label: "Joining / Admission Date",
+      value: formatDateTime(detailMember?.joinedAt || detailMember?.createdAt),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -404,8 +526,17 @@ const Members = () => {
                         </span>
                         <div className="flex gap-2">
                           <button
+                            onClick={() => handleView(member)}
+                            title="View student details"
+                            className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
+                          >
+                            <HiOutlineEye className="h-4 w-4" />
+                            View
+                          </button>
+                          <button
                             onClick={() => handleEdit(member)}
                             className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/40 rounded-lg transition-colors"
+                            title="Edit student"
                           >
                             <HiOutlinePencil className="h-4 w-4" />
                           </button>
@@ -645,6 +776,174 @@ const Members = () => {
               </button>
             </div>
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!viewStudent}
+        onClose={closeView}
+        title="Student Details"
+        size="lg"
+      >
+        {viewLoading && !viewDetails ? (
+          <LoadingSpinner text="Loading student details..." />
+        ) : (
+          detailMember && (
+            <div className="space-y-5">
+              {viewDetails?.loadError && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-300">
+                  Some details could not be loaded. Showing the information
+                  already available in the list.
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-300 font-bold text-lg flex-shrink-0">
+                  {detailMember.name?.charAt(0)?.toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                    {detailMember.name || "Unnamed student"}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                    {detailMember.studentId || "No Student ID yet"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {detailFields.map((field) => (
+                  <div
+                    key={field.label}
+                    className="rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                      {field.label}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white break-words">
+                      {field.value || (
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                      )}
+                    </p>
+                  </div>
+                ))}
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    Address
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white break-words">
+                    {detailMember.address || (
+                      <span className="text-gray-400 dark:text-gray-500">—</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
+                  Borrowing Summary
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Total Issued", value: detailStats.total },
+                    { label: "Current Books", value: detailStats.active },
+                    { label: "Returned", value: detailStats.returned },
+                    { label: "Overdue", value: detailStats.overdue },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center"
+                    >
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">
+                        {stat.value}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {stat.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Total fine
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {formatCurrency(detailStats.fine)}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
+                  Issued Books
+                </p>
+                {detailIssues.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No books issued yet.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {detailIssues.map((issue) => {
+                      const overdue =
+                        issue.status !== "returned" && isOverdue(issue.dueDate);
+                      const fine =
+                        issue.status === "returned"
+                          ? Number(issue.fine) || 0
+                          : overdue
+                          ? calculateFine(issue.dueDate)
+                          : 0;
+                      return (
+                        <li
+                          key={issue.id}
+                          className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {detailBookMap[issue.bookId]?.title || "Untitled book"}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Issued {formatDate(issue.issueDate)} · Due{" "}
+                              {formatDate(issue.dueDate)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                issue.status === "returned"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                                  : overdue
+                                  ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                                  : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                              }`}
+                            >
+                              {issue.status === "returned"
+                                ? "Returned"
+                                : overdue
+                                ? "Overdue"
+                                : "Issued"}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              {formatCurrency(fine)}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={closeView}
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )
         )}
       </Modal>
 

@@ -5,3 +5,6 @@ node_modules
 *.log
 dist
 scripts/service-account.json
+.vercel
+service-account*.json
+*firebase-adminsdk*.json
