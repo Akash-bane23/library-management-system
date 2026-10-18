@@ -16,6 +16,11 @@
     "check:firebase": "node scripts/check-firebase-env.mjs",
     "seed-data": "node scripts/seed-data.js"
   },
+  "overrides": {
+    "jwks-rsa": {
+      "jose": "^5.9.6"
+    }
+  },
   "dependencies": {
     "date-fns": "^3.6.0",
     "firebase": "^10.14.1",
