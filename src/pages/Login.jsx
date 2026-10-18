@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { HiOutlineLockClosed, HiOutlineMail } from "react-icons/hi";
@@ -158,6 +158,24 @@ const Login = () => {
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Contact your administrator for account access
+          </p>
+          <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
+            Librarian?{" "}
+            <Link
+              to="/librarian/login"
+              className="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+            >
+              Sign in here
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
+            Student?{" "}
+            <Link
+              to="/student/login"
+              className="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+            >
+              Sign in here
+            </Link>
           </p>
         </div>
       </div>

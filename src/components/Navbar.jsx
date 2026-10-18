@@ -9,8 +9,10 @@ const Navbar = ({ onMenuClick }) => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    const loginPath =
+      userProfile?.role === "librarian" ? "/librarian/login" : "/login";
     await logout();
-    navigate("/login");
+    navigate(loginPath);
   };
 
   return (

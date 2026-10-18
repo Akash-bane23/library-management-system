@@ -1,0 +1,132 @@
+rules_version = '2';
+
+// Library Management System — Firestore security rules (role enforcement)
+//
+// The trusted role source is the `users/{uid}` document (written only by the
+// trusted backend / an admin). Frontend role checks are UX only — these rules
+// are the actual enforcement layer.
+//
+// Roles: "admin", "librarian" (staff) and "student".
+//
+// IMPORTANT
+// - These rules are NOT active until you deploy them.
+//   Paste this file into: Firebase Console -> Firestore Database -> Rules -> Publish
+//   (or run `firebase deploy --only firestore:rules` if you use the Firebase CLI).
+// - The FIRST admin profile must exist before these rules are deployed, because
+//   these rules do not allow bootstrapping a privileged profile from the client.
+//   Create it with: `npm run setup-admin` (uses the Admin SDK, which bypasses rules).
+// - Student accounts are created ONLY through the serverless endpoint
+//   (api/create-student.js) using the Admin SDK. The Admin SDK bypasses these
+//   rules, so that endpoint performs its own authentication + role checks.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------- helpers ----------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function profileExists() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isActive() {
+      return profileExists() && userDoc().status == 'active';
+    }
+
+    function isAdmin() {
+      return isActive() && userDoc().role == 'admin';
+    }
+
+    function isLibrarian() {
+      return isActive() && userDoc().role == 'librarian';
+    }
+
+    function isStaff() {
+      return isAdmin() || isLibrarian();
+    }
+
+    function isStudent() {
+      return isActive() && userDoc().role == 'student';
+    }
+
+    // The student's own member record id, proven by their server-written profile.
+    function myMemberId() {
+      return userDoc().memberId;
+    }
+
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // ---------------- users ----------------
+    // A user may read their own profile; admins manage all accounts.
+    // Students may update ONLY non-privileged display fields on their own
+    // profile. Role, uid, status, studentId and memberId can never be changed
+    // by the student (prevents privilege escalation / identity remapping).
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin();
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.memberId == resource.data.memberId
+        && changedOnly(['name', 'phone', 'address', 'updatedAt']);
+    }
+
+    // ---------------- library catalogue (read-only for students) ----------------
+    match /books/{bookId} {
+      allow read: if isStaff() || isStudent();
+      allow write: if isStaff();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isStaff() || isStudent();
+      allow write: if isStaff();
+    }
+
+    match /authors/{authorId} {
+      allow read: if isStaff() || isStudent();
+      allow write: if isStaff();
+    }
+
+    // ---------------- members ----------------
+    // Staff manage student records. A student can read/update ONLY their own
+    // linked member record, and cannot change the ownership mapping, email or
+    // student ID (no identity remapping).
+    match /members/{memberId} {
+      allow read, write: if isStaff();
+      allow read: if isStudent() && resource.data.userId == request.auth.uid;
+      allow update: if isStudent()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.email == resource.data.email
+        && changedOnly(['name', 'phone', 'address', 'updatedAt']);
+    }
+
+    // ---------------- issue / return transactions ----------------
+    // Students may only READ their own issue records, matched to the member id
+    // stored on their server-controlled profile (never a browser-supplied id).
+    // Students can never create/modify issue or return records.
+    match /issuedBooks/{issueId} {
+      allow read, write: if isStaff();
+      allow read: if isStudent() && resource.data.memberId == myMemberId();
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

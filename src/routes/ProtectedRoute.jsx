@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 const ProtectedRoute = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userProfile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -15,6 +15,11 @@ const ProtectedRoute = ({ children }) => {
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Students must never reach the staff area.
+  if (userProfile?.role === "student") {
+    return <Navigate to="/student/dashboard" replace />;
   }
 
   return children;
